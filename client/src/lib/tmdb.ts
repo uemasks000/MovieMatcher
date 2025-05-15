@@ -10,7 +10,7 @@
  * @returns The URL for the image
  */
 export function getTmdbImageUrl(path: string | null, type: 'poster' | 'backdrop'): string {
-  // For mock data, we just have simple path names without a full URL
+  // For null or empty paths
   if (!path) {
     return type === 'poster' 
       ? 'https://via.placeholder.com/500x750?text=No+Image+Available'
@@ -22,11 +22,18 @@ export function getTmdbImageUrl(path: string | null, type: 'poster' | 'backdrop'
     return path;
   }
   
-  // For our mock data with paths like "/poster1.jpg"
-  if (path.startsWith('/poster') || path.startsWith('/backdrop') || path.startsWith('/actor')) {
+  // For TMDB API paths like "/abcdef123456.jpg"
+  if (path.startsWith('/')) {
+    // These are the standard TMDB image sizes
+    const size = type === 'poster' ? 'w500' : 'w1280';
+    return `https://image.tmdb.org/t/p/${size}${path}`;
+  }
+  
+  // For our mock data with paths like "poster1.jpg" (without leading slash)
+  if (path.includes('poster') || path.includes('backdrop') || path.includes('actor')) {
     // Use placeholder images with custom text
     const dimensions = type === 'poster' ? '500x750' : '1280x720';
-    const filename = path.substring(1).split('.')[0]; // Get "poster1" from "/poster1.jpg"
+    const filename = path.split('.')[0]; // Get "poster1" from "poster1.jpg"
     return `https://via.placeholder.com/${dimensions}?text=${filename}`;
   }
   

@@ -30,10 +30,29 @@ export async function getGenres() {
  */
 export async function discoverMovies(page = 1, genreId?: number) {
   try {
+    // For better randomization, use one of several sorting methods
+    const sortMethods = [
+      'popularity.desc',
+      'vote_average.desc',
+      'vote_count.desc',
+      'primary_release_date.desc',
+      'revenue.desc'
+    ];
+    
+    // Randomly choose a sort method
+    const randomSort = sortMethods[Math.floor(Math.random() * sortMethods.length)];
+    
+    // Also add some randomization through different years
+    const currentYear = new Date().getFullYear();
+    const randomYear = Math.floor(Math.random() * 20) + (currentYear - 30); // Random year between (current-30) and (current-10)
+    const randomPage = Math.floor(Math.random() * 5) + 1; // Random page between 1 and 5
+    
     let params: any = {
-      page,
-      sort_by: 'popularity.desc',
-      include_adult: false
+      page: page === 1 ? randomPage : page, // Only randomize first page
+      sort_by: randomSort,
+      include_adult: false,
+      'primary_release_date.gte': `${randomYear}-01-01`,
+      'vote_count.gte': 100 // Ensure we get movies with enough votes
     };
     
     if (genreId) {
