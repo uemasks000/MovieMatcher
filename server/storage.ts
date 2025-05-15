@@ -6,6 +6,8 @@ import {
   type UserLike, 
   type InsertUserLike 
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -20,27 +22,15 @@ export interface IStorage {
   getLikedMoviesByUsername(username: string): Promise<UserLike[]>;
 }
 
-export class MemStorage implements IStorage {
-  private movies: Map<number, Movie>;
-  private userLikes: Map<number, UserLike>;
-  private movieIdCounter: number;
-  private likeIdCounter: number;
-
-  constructor() {
-    this.movies = new Map();
-    this.userLikes = new Map();
-    this.movieIdCounter = 1;
-    this.likeIdCounter = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getMovie(id: number): Promise<Movie | undefined> {
-    return this.movies.get(id);
+    const result = await db.select().from(movies).where(eq(movies.id, id));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getMovieByTmdbId(tmdbId: number): Promise<Movie | undefined> {
-    return Array.from(this.movies.values()).find(
-      (movie) => movie.tmdbId === tmdbId
-    );
+    const result = await db.select().from(movies).where(eq(movies.tmdbId, tmdbId));
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async saveMovie(movie: InsertMovie): Promise<Movie> {
@@ -49,18 +39,18 @@ export class MemStorage implements IStorage {
       return existingMovie;
     }
     
-    const id = this.movieIdCounter++;
-    const newMovie: Movie = { 
-      ...movie, 
-      id,
+    // Ensure all fields are properly defined to match the schema
+    const newMovie = {
+      ...movie,
       posterPath: movie.posterPath || null,
       backdropPath: movie.backdropPath || null,
       releaseDate: movie.releaseDate || null,
       voteAverage: movie.voteAverage || null,
       genres: movie.genres || null
     };
-    this.movies.set(id, newMovie);
-    return newMovie;
+    
+    const result = await db.insert(movies).values(newMovie).returning();
+    return result[0];
   }
 
   async saveLike(like: InsertUserLike): Promise<UserLike> {
@@ -68,36 +58,56 @@ export class MemStorage implements IStorage {
     
     if (existingLike) {
       // Update existing like
-      const updatedLike: UserLike = { 
-        ...existingLike, 
-        liked: like.liked !== undefined ? like.liked : true 
+      const updatedLike = {
+        ...existingLike,
+        liked: like.liked !== undefined ? like.liked : true
       };
-      this.userLikes.set(existingLike.id, updatedLike);
-      return updatedLike;
+      
+      const result = await db
+        .update(userLikes)
+        .set({ liked: updatedLike.liked })
+        .where(eq(userLikes.id, existingLike.id))
+        .returning();
+        
+      return result[0];
     }
     
-    // Create new like
-    const id = this.likeIdCounter++;
-    const newLike: UserLike = { 
-      ...like, 
-      id, 
-      liked: like.liked !== undefined ? like.liked : true 
+    // Create new like with a default value for liked if not provided
+    const newLike = {
+      ...like,
+      liked: like.liked !== undefined ? like.liked : true
     };
-    this.userLikes.set(id, newLike);
-    return newLike;
+    
+    const result = await db.insert(userLikes).values(newLike).returning();
+    return result[0];
   }
 
   async getLikeByTmdbIdAndUsername(tmdbId: number, username: string): Promise<UserLike | undefined> {
-    return Array.from(this.userLikes.values()).find(
-      (like) => like.tmdbId === tmdbId && like.username === username
-    );
+    const result = await db
+      .select()
+      .from(userLikes)
+      .where(
+        and(
+          eq(userLikes.tmdbId, tmdbId),
+          eq(userLikes.username, username)
+        )
+      );
+      
+    return result.length > 0 ? result[0] : undefined;
   }
 
   async getLikedMoviesByUsername(username: string): Promise<UserLike[]> {
-    return Array.from(this.userLikes.values()).filter(
-      (like) => like.username === username && like.liked === true
-    );
+    return db
+      .select()
+      .from(userLikes)
+      .where(
+        and(
+          eq(userLikes.username, username),
+          eq(userLikes.liked, true)
+        )
+      );
   }
 }
 
-export const storage = new MemStorage();
+// Use DatabaseStorage instead of MemStorage
+export const storage = new DatabaseStorage();
