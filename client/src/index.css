@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&family=Roboto:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 13% 18%;
+  --foreground: 0 0% 100%;
+  --muted: 220 13% 23%;
+  --muted-foreground: 240 5% 84.9%;
+  --popover: 220 13% 18%;
+  --popover-foreground: 0 0% 100%;
+  --card: 15 15% 10%;
+  --card-foreground: 0 0% 100%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 0 72% 51%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 221 39% 11%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 49 100% 50%;
+  --accent-foreground: 24 9.8% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.5rem;
+  
+  --sidebar-background: 220 13% 18%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 0 72% 51%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 100%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 240 4.9% 83.9%;
+  
+  --chart-1: 49 100% 50%;
+  --chart-2: 0 72% 51%;
+  --chart-3: 208 100% 54%;
+  --chart-4: 130 43% 57%;
+  --chart-5: 291 64% 47%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-gradient-to-b from-[#141E30] to-[#243B55] text-foreground font-['Roboto'];
+    min-height: 100vh;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-['Montserrat'] font-bold;
+  }
+}
+
+@layer utilities {
+  .card {
+    transition: transform 0.3s ease;
+  }
+
+  .card.swiping-left {
+    transform: translateX(-150%) rotate(-20deg);
+  }
+
+  .card.swiping-right {
+    transform: translateX(150%) rotate(20deg);
+  }
+
+  .action-overlay {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .card-container:hover .action-overlay {
+    opacity: 1;
+  }
+
+  .genre-pill::-webkit-scrollbar {
+    display: none;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+}
