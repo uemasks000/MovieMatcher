@@ -1,25 +1,16 @@
-import express, { type Express } from "express";
+import express, { type Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import axios from "axios";
 import { insertMovieSchema, insertUserLikeSchema } from "@shared/schema";
 import { z } from "zod";
-
-// Setting up TMDB API key from environment variables
-const TMDB_API_KEY = process.env.TMDB_API_KEY || "3e1dd2d638fd39d5cf997a60ae3e40aa";
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+import { mockGenres, mockMovies, mockMovieDetails } from "./mockData";
+import { ParsedQs } from "qs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // API routes
+  // API routes using mock data
   app.get("/api/genres", async (req, res) => {
     try {
-      const response = await axios.get(`${TMDB_BASE_URL}/genre/movie/list`, {
-        params: {
-          api_key: TMDB_API_KEY,
-          language: "en-US",
-        },
-      });
-      res.json(response.data);
+      res.json(mockGenres);
     } catch (error) {
       console.error("Error fetching genres:", error);
       res.status(500).json({ message: "Failed to fetch genres" });
@@ -29,27 +20,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/movies/discover", async (req, res) => {
     try {
       const { genre, page = 1 } = req.query;
+      const pageNum = Number(page);
       
-      const params: Record<string, string | number> = {
-        api_key: TMDB_API_KEY,
-        language: "en-US",
-        sort_by: "popularity.desc",
-        include_adult: "false",
-        page: Number(page),
-      };
-      
+      // Filter movies by genre if specified
+      let filteredMovies = [...mockMovies];
       if (genre && genre !== "all") {
+        // Parse the genre ID from the query parameter
+        let genreIdStr = "";
+        
         if (Array.isArray(genre)) {
-          params.with_genres = String(genre[0]);
-        } else if (typeof genre === 'object') {
-          params.with_genres = String(Object.values(genre)[0] || '');
+          genreIdStr = genre.length > 0 ? String(genre[0]) : "";
+        } else if (typeof genre === "object" && genre !== null) {
+          const firstVal = Object.values(genre)[0];
+          if (firstVal) {
+            if (Array.isArray(firstVal)) {
+              genreIdStr = firstVal.length > 0 ? String(firstVal[0]) : "";
+            } else if (typeof firstVal === "object" && firstVal !== null) {
+              const nestedVal = Object.values(firstVal)[0];
+              genreIdStr = nestedVal ? String(nestedVal) : "";
+            } else {
+              genreIdStr = String(firstVal);
+            }
+          }
         } else {
-          params.with_genres = String(genre);
+          genreIdStr = String(genre);
+        }
+        
+        const genreId = parseInt(genreIdStr);
+        
+        if (!isNaN(genreId)) {
+          filteredMovies = mockMovies.filter(movie => 
+            movie.genre_ids?.includes(genreId)
+          );
         }
       }
       
-      const response = await axios.get(`${TMDB_BASE_URL}/discover/movie`, { params });
-      res.json(response.data);
+      // Paginate results - 5 movies per page
+      const pageSize = 5;
+      const startIndex = (pageNum - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedResults = filteredMovies.slice(startIndex, endIndex);
+      
+      res.json({
+        page: pageNum,
+        results: paginatedResults,
+        total_pages: Math.ceil(filteredMovies.length / pageSize),
+        total_results: filteredMovies.length
+      });
     } catch (error) {
       console.error("Error fetching discover movies:", error);
       res.status(500).json({ message: "Failed to fetch discover movies" });
@@ -59,14 +76,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/movies/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const response = await axios.get(`${TMDB_BASE_URL}/movie/${id}`, {
-        params: {
-          api_key: TMDB_API_KEY,
-          language: "en-US",
-          append_to_response: "credits",
-        },
-      });
-      res.json(response.data);
+      const movieId = parseInt(id);
+      
+      if (isNaN(movieId)) {
+        return res.status(400).json({ message: "Invalid movie ID" });
+      }
+      
+      const movieDetail = mockMovieDetails(movieId);
+      
+      if (!movieDetail) {
+        return res.status(404).json({ message: "Movie not found" });
+      }
+      
+      res.json(movieDetail);
     } catch (error) {
       console.error(`Error fetching movie details for ID ${req.params.id}:`, error);
       res.status(500).json({ message: "Failed to fetch movie details" });
@@ -94,24 +116,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { username } = req.params;
       const likedMovies = await storage.getLikedMoviesByUsername(username);
       
-      // If there are liked movies, fetch their details from TMDB
+      // If there are liked movies, get their details from mock data
       if (likedMovies.length > 0) {
-        const movieDetailsPromises = likedMovies.map(async (like) => {
-          try {
-            const response = await axios.get(`${TMDB_BASE_URL}/movie/${like.tmdbId}`, {
-              params: {
-                api_key: TMDB_API_KEY,
-                language: "en-US",
-              },
-            });
-            return response.data;
-          } catch (err) {
-            console.error(`Error fetching details for movie ID ${like.tmdbId}:`, err);
-            return null;
-          }
-        });
+        const movieDetails = likedMovies.map(like => {
+          const movieDetail = mockMovieDetails(like.tmdbId);
+          return movieDetail;
+        }).filter(Boolean);
         
-        const movieDetails = (await Promise.all(movieDetailsPromises)).filter(Boolean);
         res.json(movieDetails);
       } else {
         res.json([]);

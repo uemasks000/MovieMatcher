@@ -8,6 +8,8 @@ import { useContext } from "react";
 import { UserContext } from "../App";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { formatRuntime } from "@/lib/tmdb";
 
 interface MovieDetailProps {
   movieId: number | null;

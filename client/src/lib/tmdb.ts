@@ -1,24 +1,39 @@
 /**
- * Utility functions for working with TMDB API
+ * Utility functions for working with movie images
  */
 
 /**
- * Get the full URL for a TMDB image
+ * Get the image URL for a movie poster or backdrop
  * 
- * @param path The image path from TMDB API
+ * @param path The image path
  * @param type The type of image (poster or backdrop)
- * @returns The full URL for the image
+ * @returns The URL for the image
  */
 export function getTmdbImageUrl(path: string | null, type: 'poster' | 'backdrop'): string {
+  // For mock data, we just have simple path names without a full URL
   if (!path) {
     return type === 'poster' 
       ? 'https://via.placeholder.com/500x750?text=No+Image+Available'
       : 'https://via.placeholder.com/1280x720?text=No+Image+Available';
   }
   
-  // Use appropriate size based on image type
-  const size = type === 'poster' ? 'w500' : 'w1280';
-  return `https://image.tmdb.org/t/p/${size}${path}`;
+  // If path starts with http, use it directly
+  if (path.startsWith('http')) {
+    return path;
+  }
+  
+  // For our mock data with paths like "/poster1.jpg"
+  if (path.startsWith('/poster') || path.startsWith('/backdrop') || path.startsWith('/actor')) {
+    // Use placeholder images with custom text
+    const dimensions = type === 'poster' ? '500x750' : '1280x720';
+    const filename = path.substring(1).split('.')[0]; // Get "poster1" from "/poster1.jpg"
+    return `https://via.placeholder.com/${dimensions}?text=${filename}`;
+  }
+  
+  // Fallback to placeholder
+  return type === 'poster' 
+    ? 'https://via.placeholder.com/500x750?text=Movie+Poster' 
+    : 'https://via.placeholder.com/1280x720?text=Movie+Backdrop';
 }
 
 /**
