@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Discover from "@/pages/Discover";
 import Matches from "@/pages/Matches";
+import Settings from "@/pages/Settings";
 import { useState } from "react";
 
 // Create global context for the username
@@ -21,6 +22,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Discover} />
       <Route path="/matches" component={Matches} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
