@@ -5,12 +5,19 @@ import { insertMovieSchema, insertUserLikeSchema } from "@shared/schema";
 import { z } from "zod";
 import { mockGenres, mockMovies, mockMovieDetails } from "./mockData";
 import { ParsedQs } from "qs";
+import { getGenres, discoverMovies, getMovieDetails } from "./tmdbApi";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // API routes using mock data
+  // API routes using TMDB API
   app.get("/api/genres", async (req, res) => {
     try {
-      res.json(mockGenres);
+      // Use TMDB API if key is available, otherwise fall back to mock data
+      if (process.env.TMDB_API_KEY) {
+        const genresData = await getGenres();
+        res.json(genresData);
+      } else {
+        res.json(mockGenres);
+      }
     } catch (error) {
       console.error("Error fetching genres:", error);
       res.status(500).json({ message: "Failed to fetch genres" });
@@ -22,51 +29,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { genre, page = 1 } = req.query;
       const pageNum = Number(page);
       
-      // Filter movies by genre if specified
-      let filteredMovies = [...mockMovies];
-      if (genre && genre !== "all") {
-        // Parse the genre ID from the query parameter
-        let genreIdStr = "";
+      // Use TMDB API if key is available
+      if (process.env.TMDB_API_KEY) {
+        let genreId: number | undefined;
         
-        if (Array.isArray(genre)) {
-          genreIdStr = genre.length > 0 ? String(genre[0]) : "";
-        } else if (typeof genre === "object" && genre !== null) {
-          const firstVal = Object.values(genre)[0];
-          if (firstVal) {
-            if (Array.isArray(firstVal)) {
-              genreIdStr = firstVal.length > 0 ? String(firstVal[0]) : "";
-            } else if (typeof firstVal === "object" && firstVal !== null) {
-              const nestedVal = Object.values(firstVal)[0];
-              genreIdStr = nestedVal ? String(nestedVal) : "";
-            } else {
-              genreIdStr = String(firstVal);
+        if (genre && genre !== "all") {
+          // Parse the genre ID from the query parameter
+          let genreIdStr = "";
+          
+          if (Array.isArray(genre)) {
+            genreIdStr = genre.length > 0 ? String(genre[0]) : "";
+          } else if (typeof genre === "object" && genre !== null) {
+            const firstVal = Object.values(genre)[0];
+            if (firstVal) {
+              if (Array.isArray(firstVal)) {
+                genreIdStr = firstVal.length > 0 ? String(firstVal[0]) : "";
+              } else if (typeof firstVal === "object" && firstVal !== null) {
+                const nestedVal = Object.values(firstVal)[0];
+                genreIdStr = nestedVal ? String(nestedVal) : "";
+              } else {
+                genreIdStr = String(firstVal);
+              }
             }
+          } else {
+            genreIdStr = String(genre);
           }
-        } else {
-          genreIdStr = String(genre);
+          
+          genreId = parseInt(genreIdStr);
+          if (isNaN(genreId)) {
+            genreId = undefined;
+          }
         }
         
-        const genreId = parseInt(genreIdStr);
-        
-        if (!isNaN(genreId)) {
-          filteredMovies = mockMovies.filter(movie => 
-            movie.genre_ids?.includes(genreId)
-          );
+        const moviesData = await discoverMovies(pageNum, genreId);
+        res.json(moviesData);
+      } else {
+        // Fall back to mock data if no API key
+        let filteredMovies = [...mockMovies];
+        if (genre && genre !== "all") {
+          // Parse the genre ID from the query parameter
+          let genreIdStr = "";
+          
+          if (Array.isArray(genre)) {
+            genreIdStr = genre.length > 0 ? String(genre[0]) : "";
+          } else if (typeof genre === "object" && genre !== null) {
+            const firstVal = Object.values(genre)[0];
+            if (firstVal) {
+              if (Array.isArray(firstVal)) {
+                genreIdStr = firstVal.length > 0 ? String(firstVal[0]) : "";
+              } else if (typeof firstVal === "object" && firstVal !== null) {
+                const nestedVal = Object.values(firstVal)[0];
+                genreIdStr = nestedVal ? String(nestedVal) : "";
+              } else {
+                genreIdStr = String(firstVal);
+              }
+            }
+          } else {
+            genreIdStr = String(genre);
+          }
+          
+          const genreId = parseInt(genreIdStr);
+          
+          if (!isNaN(genreId)) {
+            filteredMovies = mockMovies.filter(movie => 
+              movie.genre_ids?.includes(genreId)
+            );
+          }
         }
+        
+        // Paginate results - 5 movies per page
+        const pageSize = 5;
+        const startIndex = (pageNum - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const paginatedResults = filteredMovies.slice(startIndex, endIndex);
+        
+        res.json({
+          page: pageNum,
+          results: paginatedResults,
+          total_pages: Math.ceil(filteredMovies.length / pageSize),
+          total_results: filteredMovies.length
+        });
       }
-      
-      // Paginate results - 5 movies per page
-      const pageSize = 5;
-      const startIndex = (pageNum - 1) * pageSize;
-      const endIndex = startIndex + pageSize;
-      const paginatedResults = filteredMovies.slice(startIndex, endIndex);
-      
-      res.json({
-        page: pageNum,
-        results: paginatedResults,
-        total_pages: Math.ceil(filteredMovies.length / pageSize),
-        total_results: filteredMovies.length
-      });
     } catch (error) {
       console.error("Error fetching discover movies:", error);
       res.status(500).json({ message: "Failed to fetch discover movies" });
@@ -82,13 +125,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid movie ID" });
       }
       
-      const movieDetail = mockMovieDetails(movieId);
-      
-      if (!movieDetail) {
-        return res.status(404).json({ message: "Movie not found" });
+      // Use TMDB API if key is available
+      if (process.env.TMDB_API_KEY) {
+        const movieDetail = await getMovieDetails(movieId);
+        res.json(movieDetail);
+      } else {
+        const movieDetail = mockMovieDetails(movieId);
+        
+        if (!movieDetail) {
+          return res.status(404).json({ message: "Movie not found" });
+        }
+        
+        res.json(movieDetail);
       }
-      
-      res.json(movieDetail);
     } catch (error) {
       console.error(`Error fetching movie details for ID ${req.params.id}:`, error);
       res.status(500).json({ message: "Failed to fetch movie details" });
@@ -116,14 +165,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { username } = req.params;
       const likedMovies = await storage.getLikedMoviesByUsername(username);
       
-      // If there are liked movies, get their details from mock data
+      // If there are liked movies, get their details
       if (likedMovies.length > 0) {
-        const movieDetails = likedMovies.map(like => {
-          const movieDetail = mockMovieDetails(like.tmdbId);
-          return movieDetail;
-        }).filter(Boolean);
-        
-        res.json(movieDetails);
+        if (process.env.TMDB_API_KEY) {
+          // Use the TMDB API to get movie details
+          const movieDetailsPromises = likedMovies.map(async (like) => {
+            try {
+              return await getMovieDetails(like.tmdbId);
+            } catch (error) {
+              console.error(`Error fetching details for movie ID ${like.tmdbId}:`, error);
+              return null;
+            }
+          });
+          
+          const movieDetails = (await Promise.all(movieDetailsPromises)).filter(Boolean);
+          res.json(movieDetails);
+        } else {
+          // Fall back to mock data if no API key
+          const movieDetails = likedMovies.map(like => {
+            const movieDetail = mockMovieDetails(like.tmdbId);
+            return movieDetail;
+          }).filter(Boolean);
+          
+          res.json(movieDetails);
+        }
       } else {
         res.json([]);
       }
