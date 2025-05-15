@@ -17,16 +17,16 @@ const HeaderBar = () => {
           <ul className="flex space-x-6">
             <li className="hidden md:block">
               <Link href="/">
-                <a className={`${location === '/' ? 'text-primary' : 'text-white hover:text-primary'} transition`}>
+                <div className={`${location === '/' ? 'text-primary' : 'text-white hover:text-primary'} transition cursor-pointer`}>
                   Discover
-                </a>
+                </div>
               </Link>
             </li>
             <li className="hidden md:block">
               <Link href="/matches">
-                <a className={`${location === '/matches' ? 'text-primary' : 'text-white hover:text-primary'} transition`}>
+                <div className={`${location === '/matches' ? 'text-primary' : 'text-white hover:text-primary'} transition cursor-pointer`}>
                   Matches
-                </a>
+                </div>
               </Link>
             </li>
             <li>
